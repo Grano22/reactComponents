@@ -1,0 +1,60 @@
+div.formUploadControl {
+    width: 100%;
+    min-height: 250px;
+    /*background-color: #adadad;*/
+    border: 4px dashed #8a8a8a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    text-align: center;
+}
+
+.formUploadControl div.inControl {
+
+}
+
+.formUploadControl .filePreview img, .formUploadControl .filePreview output, .formUploadControl .filePreview video {
+    max-width: 70%;
+    margin: auto;
+}
+.formUploadControl .filePreview output {
+    overflow-y: auto;
+    word-wrap: break-word;
+    word-break: break-all;
+    max-height: 200px;
+}
+
+span.fileUploadControlCloseButton {
+    display: inline-block;
+    border-radius: 50%;
+    font-size: 48px;
+    color: #737373;
+    border: 3px solid #737373;
+    width: 48px; height: 48px;
+    line-height: 44px;
+    font-weight: bolder;
+    transition: 0.2s ease-out;
+    margin: 5px;
+}
+
+span.fileUploadControlCloseButton:hover {
+    cursor: pointer;
+    color: #fefefe;
+    background: #737373;
+    transition: 0.2s ease-in;
+}
+
+ul.fileEntries {
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}
+
+ul.fileEntries li.fileEntry {
+    border-radius: 11px;
+    border: 2px solid #8a8a8a;
+    background-color: #aaa8a8;
+    padding: 9px;
+    margin: 0;
+}
