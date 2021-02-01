@@ -11,7 +11,7 @@ div.formUploadControl {
 }
 
 .formUploadControl div.inControl {
-
+    pointer-events: auto;
 }
 
 .formUploadControl .filePreview img, .formUploadControl .filePreview output, .formUploadControl .filePreview video {
@@ -45,16 +45,62 @@ span.fileUploadControlCloseButton:hover {
     transition: 0.2s ease-in;
 }
 
-ul.fileEntries {
+ul.filesEntries {
     padding: 0;
     margin: 0;
     list-style: none;
 }
 
-ul.fileEntries li.fileEntry {
+ul.filesEntries li.fileEntry {
     border-radius: 11px;
     border: 2px solid #8a8a8a;
     background-color: #aaa8a8;
+    margin: 10px 0;
+    padding: 0;
+    color: #444;
+    line-height: 28px;
+}
+
+ul.filesEntries li.fileEntry:hover {
+    cursor: pointer;
+}
+
+ul.filesEntries li.fileEntry.active {
+    border-color: #696969;
+    background-color: #929090;
+}
+
+ul.filesEntries li.fileEntry > span {
+    display: inline-block;
     padding: 9px;
-    margin: 0;
+}
+
+ul.filesEntries li.fileEntry .fileIndex {
+    float: left;
+    text-align: left;
+    font-size: 1.3rem;
+    margin-left: 5px;
+}
+
+ul.filesEntries li.fileEntry .fileOptions {
+    float: right;
+}
+
+ul.filesEntries li.fileEntry .deleteFileEntryButton {
+    text-align: right;
+    font-weight: bolder;
+    font-size: 35px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    transition: 0.3s ease-out;
+    /* display: inline-block; */
+}
+
+ul.filesEntries li.fileEntry .deleteFileEntryButton:hover {
+    cursor: pointer;
+    color: #676767;
+    /* background-color: rgba(0,0,0,0.4); /*#585858;*&/
+    color: #efefef; */
+    transition: 0.3s ease-in;
 }

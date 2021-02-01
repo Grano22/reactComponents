@@ -30,6 +30,7 @@ class FilesCollection {
     input = [];
 
     get last() { return this.all[this.all.length - 1]; }
+    get first() { return this.all[0]; }
 
     from(anyCollection, type="input", clearPrevious=false) {
         if(clearPrevious) this.clearAll();
@@ -43,16 +44,12 @@ class FilesCollection {
     addResource(ind, res) {
         if(typeof this.all[ind]!="undefined") {
             this.all[ind].resource = res;
-            console.log(this[this.all[ind].receivedFrom]);
-            this[this.all[ind].receivedFrom][ind].resource = res;
+            //this[this.all[ind].receivedFrom][ind].resource = res;
+            for(let exTyped of this[this.all[ind].receivedFrom]) if(exTyped==this.all[ind]) { exTyped.resource = res; break; }
         } else console.error("Unknown index "+ind+" in files collection using addResource");
     }
 
     clearAll() { this.all = []; this.dropped = []; this.input = []; }
-
-    clear() {
-
-    }
 
     remove(ind) {
         try {
@@ -60,7 +57,7 @@ class FilesCollection {
             let type = this.all[ind].receivedFrom;
             if(typeof this[type][ind]=="undefined") return null;
             this[type].splice(ind, 1);
-            this.all[ind].splice(ind, 1);
+            this.all.splice(ind, 1);
         } catch(exc) {
             console.error(exc);
         }
@@ -215,14 +212,15 @@ export default class UploadFormControl extends Component {
         this.handleDragEnter = this.handleDragEnter.bind(this);
         this.handleDragLeave = this.handleDragLeave.bind(this);
         this.handleDragOver = this.handleDragOver.bind(this);
-        this.handleDropMultiple = this.handleDropMultiple.bind(this);
-        this.handleDropOnce = this.handleDropOnce.bind(this);
+        //this.handleDropMultiple = this.handleDropMultiple.bind(this);
+        //this.handleDropOnce = this.handleDropOnce.bind(this);
+        this.handleDrop = this.handleDrop.bind(this);
         let pointRef = this.dropContainer || this.dropContainer.current;
         
         pointRef.addEventListener('dragenter', this.handleDragEnter);
         pointRef.addEventListener('dragleave', this.handleDragLeave);
         pointRef.addEventListener('dragover', this.handleDragOver);
-        pointRef.addEventListener('drop', (this.config.multiple ? this.handleDropMultiple : this.handleDropOnce));
+        pointRef.addEventListener('drop', this.handleDrop);
         if(this.config.preventWindowDropping) { 
             if(window.ondrop!=null) window.ondrop = function(ev) { ev = ev || event; ev.preventDefault(); }
             if(window.ondragover!=null) window.ondragover = function(ev) { ev = ev || event; ev.preventDefault(); }
@@ -240,25 +238,23 @@ export default class UploadFormControl extends Component {
         return ev.dataTransfer.types.includes("Files") || ev.dataTransfer.files.length>0 || ev.files.length>0;
     }
 
-    //Handlers for window stop dropping
-    preventDefualtWindowBehaviour() {}
-
     //Handlers files drag'n'drop
     handleDragEnter(ev) {
         ev.preventDefault();
         ev.stopPropagation();
-        this.addOverlayToContainer(this.config.multiple ? this.renderDuringDragMultiple(this.config.lang) : this.renderDuringDragOnce(this.config.lang));
+        
     }
 
     handleDragLeave(ev) {
         ev.preventDefault();
         ev.stopPropagation();
-        this.removeOverlayFromContainer();
+        this.removeOverFromContIfExist();
     }
 
     handleDragOver(ev) {
         ev.preventDefault();
         ev.stopPropagation();
+        this.addOverlayToContainer(this.config.multiple ? this.renderDuringDragMultiple(this.config.lang) : this.renderDuringDragOnce(this.config.lang));
     }
 
     handleDrop(ev) {
@@ -276,7 +272,7 @@ export default class UploadFormControl extends Component {
         let self = this;
         if(this.containsFiles(ev)) { //ev.dataTransfer.items && ev.dataTransfer.items.length > 0
             this.setState({controlState: 1, files:this.state.files});
-            let totalFilesBefore = this.state.files.all.length, fileID = 0, filesFromList = ev.dataTransfer.files || ev.files;
+            let totalFilesBefore = this.state.files.all.length, filesFromList = ev.dataTransfer.files || ev.files;
             for(let i = 0, f;f = filesFromList[i];i++) {
                 if(!f.type && f.size%4096 == 0) {
                     
@@ -285,13 +281,12 @@ export default class UploadFormControl extends Component {
                         this.state.files.add(f, "dropped");
                     if(this.config.previewFiles) {
                         let fr = new FileReader();
-                        fileID = this.state.files.all.length;
                         fr.onload = function(evt) {
                             f.resource = evt.target.result || fr.result;
-                            self.state.files.addResource(fileID, f.resource);
+                            self.state.files.addResource(totalFilesBefore + i, f.resource);
                             self.filePreviewContainer.innerHTML = self.prepareResourceOutputHTML(f.resource, f.type);
                             if(typeof self.onFileReceive=="function") self.onFileReceive(f);
-                            if(fileID==(this.state.files.all.length - 1) && typeof self.onAllFileReceive=="function") self.onAllFileReceive(self.state.files.all);
+                            if(i==(self.state.files.all.length - 1) && typeof self.onAllFileReceive=="function") self.onAllFileReceive(self.state.files.all);
                         }
                         fr.onerror = function(evt) {
                             console.error(evt);
@@ -303,9 +298,10 @@ export default class UploadFormControl extends Component {
                     } else {
                         if(typeof self.onFileReceive=="function") self.onFileReceive(f);
                     } }
-                    this.fileContext = this.state.files.get(fileID) || null;
+                    
                 }
             }
+            this.fileContext = this.state.files.last || null;
             this.setState({controlState: 3, files:this.state.files});
         }
     }
@@ -319,7 +315,6 @@ export default class UploadFormControl extends Component {
             this.state.files.clearAll();
             this.setState({controlState: 1, files:this.state.files});
             let f = ev.dataTransfer.files[0] || ev.files[0];
-            console.log(ev.dataTransfer.types);
             if(!f.type && f.size%4096 == 0) {
                     
             } else {
@@ -345,8 +340,9 @@ export default class UploadFormControl extends Component {
                     if(typeof this.onFileReceive=="function") this.onFileReceive(f);
                     if(typeof self.onAllFileReceive=="function") self.onAllFileReceive(self.state.files.all);
                 } }
-                this.fileContext = this.state.files.get(0) || null;
+                
             }
+            this.fileContext = this.state.files.get(0) || null;
             this.setState({controlState: 2, files:this.state.files});
         }
     }
@@ -381,9 +377,29 @@ export default class UploadFormControl extends Component {
     }
 
     handleFileAddition(ev) {
-        let elTg = ev.currentTarget;
+        let self = this, elTg = ev.currentTarget, totalFilesBefore = this.state.files.all.length;
         for(let i = 0, f;f = elTg.files[i];i++) {
             this.state.files.add(f, "input");
+            if(this.config.previewFiles) {
+                let fr = new FileReader();
+                fr.onload = function(evt) {
+                    f.resource = evt.target.result || fr.result;
+                    self.state.files.addResource(totalFilesBefore + i, f.resource);
+                    self.filePreviewContainer.innerHTML = self.prepareResourceOutputHTML(f.resource, f.type);
+                    if(typeof self.onFileReceive=="function") self.onFileReceive(f);
+                    if(i==(self.state.files.all.length - 1) && typeof self.onAllFileReceive=="function") self.onAllFileReceive(self.state.files.all);
+                }
+                fr.onerror = function(evt) {
+                    console.error(evt);
+                }
+                fr.onprogress = function(evt) {
+    
+                }
+                fr.readAsDataURL(f);
+            } else {
+                if(typeof this.onFileReceive=="function") this.onFileReceive(f);
+                if(typeof self.onAllFileReceive=="function") self.onAllFileReceive(self.state.files.all);
+            }
         }
         this.fileContext = this.state.files.last || null;
         this.setState({controlState:3, files:this.state.files});
@@ -400,12 +416,16 @@ export default class UploadFormControl extends Component {
      */
     listFiles() {
         let self = this;
-        return this.state.files.all.map((fc, fi)=>(<li className="fileEntry" data-index={fi} onClick={ev=>{
+        return this.state.files.all.map((fc, fi)=>(<li className={"fileEntry"+(this.fileContext==fc ? " active" : "")} key={fi} data-index={fi} onClick={ev=>{
+            ev.stopPropagation();
             self.fileContext = fc;
+            self.filePreviewContainer.innerHTML = self.prepareResourceOutputHTML(fc.resource, fc.type);
             self.setState({});
-        }}><span>{fi}</span><span>{fc.name}</span><span className="fileOptions"><span className="deleteFileEntryButton" onClick={ev=>{
+        }}><span className="fileIndex">{fi}</span><span>{fc.name}</span><span className="fileOptions"><span className="deleteFileEntryButton" onClick={ev=>{
+            ev.stopPropagation();
             self.state.files.remove(fi);
-            self.setState({files:self.state.files});
+            if(self.state.files.all.length<=0) self.setState({controlState:0, files:self.state.files}); else { self.fileContext = self.state.files.last;
+            self.setState({files:self.state.files}); }
         }}>&times;</span></span></li>));
     }
 
@@ -417,16 +437,17 @@ export default class UploadFormControl extends Component {
         return this.contents.duringDrag.des[currLang];
     }
 
-    renderUploadedMultiple(currLang) {
+    renderUploadedMultiple(currlang) {
+        let self = this;
         return (<><div className="fileDescription">
             {this.fileContext!=null ? (<>
                 <div ref={el=>this.filePreviewContainer = el} id={this.id+"_preview"} className="filePreview">Preview loading...</div>
-                <strong>{this.contents.common.fileName[currLang]}</strong>: {this.fileContext.name}<br/>
+                <strong>{this.contents.common.fileName[currlang]}</strong>: {this.fileContext.name}<br/>
                 <strong>{this.contents.common.fileType[currlang]}</strong>: {this.fileContext.type}<br/>
                 <strong>{this.contents.common.fileSize[currlang]}</strong>: {this.fileContext.size}<br/>
                 <strong>{this.contents.common.fileLastModified[currlang]}</strong>: {this.fileContext.lastModifiedDate.toISOString().slice(0, 19).replace('T', ' ')}
-            </>) : this.contents.common.fileLack}
-        </div><ul className="filesEntries">{this.listFiles()}</ul>{this.contents.uploadedMultiple.des[currlang]}<input type="file" onChange={ev=>self.handleFileAddition(ev)} multiple/></>);
+            </>) : this.contents.common.fileLack[currlang]}
+        </div><ul className="filesEntries">{this.listFiles()}</ul><input type="file" onChange={ev=>self.handleFileAddition(ev)} multiple/><br/>{this.contents.uploadedMultiple.des[currlang]}</>);
     }
 
     renderUploadedOnce(currlang, fileContext) {
@@ -513,11 +534,14 @@ export default class UploadFormControl extends Component {
 
     addOverlayToContainer(tgJSXEl) {
         let tgCont = this.dropContainer.current || this.dropContainer;
+        if(typeof tgCont.children[1]!="undefined") return false;
         tgCont.children[0].style.display = "none";
         let overlayContainer = document.createElement("div");
         overlayContainer.className = this.config.className+"_overlayContainer";
+        overlayContainer.style.pointerEvents = "none";
             if(typeof tgJSXEl=="string") overlayContainer.appendChild(document.createTextNode(tgJSXEl)); else if(React.isValidElement(tgJSXEl)) ReactDom.render(tgJSXEl, overlayContainer); else console.error("Unknown node");
         tgCont.appendChild(overlayContainer);
+        return true;
     }
 
     removeOverlayFromContainer() {
@@ -528,7 +552,7 @@ export default class UploadFormControl extends Component {
 
     removeOverFromContIfExist() {
         let tgCont = this.dropContainer.current || this.dropContainer;
-        if(typeof tgCont[1]!="undefined") this.removeOverlayFromContainer();
+        if(typeof tgCont.children[1]!="undefined") this.removeOverlayFromContainer();
     }
 
     render() {
@@ -547,8 +571,6 @@ export default class UploadFormControl extends Component {
             case 0:
                 subContent = this.renderBeforeUpload(this.config.lang);
         }
-        return (<div ref={el=>this.dropContainer = el} className={"formUploadControl"+(this.multiple ? " formUploadControlMultiple" : "")}><div className="inControl">
-            {subContent}
-        </div></div>);
+        return (<div ref={el=>this.dropContainer = el} className={"formUploadControl"+(this.multiple ? " formUploadControlMultiple" : "")}><div className="inControl">{subContent}</div></div>);
     }    
 }
