@@ -9,6 +9,7 @@ interface QueryContainerProps {
     style?: CSSProperties;
     tagName?: string;
     children: ReactNode;
+    waitFor: any[];
 }
 
 interface QuerySubcontainerProps {
@@ -20,52 +21,54 @@ interface QuerySubcontainerProps {
     template?: (...args: any[])=>void;
 }
 
+const checkIfNullable = (queryRes : any) : boolean => {
+    for(let queryName in queryRes) {
+        if(queryRes[queryName]!==null) return false;
+    }
+    return true;
+}
+
+const checkIfReady = (varsMap : any[]) : boolean =>{
+    for(let varName in varsMap) if(typeof varsMap[varName]==="undefined" || varsMap[varName]===null) return false;
+    return true;
+}
+
 /**
  * Query Container for rapid apollo client preparing
  */
-const QueryContainer = (props: QueryContainerProps) : ReactElement<QuerySubcontainerProps> => {
-    const { loading, error, data } = useQuery(props.passQuery);
-
+const QueryContainer = (props: QueryContainerProps) : ReactElement<QueryContainerProps> => {
+    const typeStates = {
+        loading: QueryContainer.Loading,
+        error: QueryContainer.Error,
+        result: QueryContainer.Result,
+        nullable: QueryContainer.Nullable
+    };
     const TagName = props.tagName || "div";
-
-    const filterContainer = (providenIC : ReactNode) : ReactNode[] => {
+    let currState = "loading", args = [];
+    let totalLoaded = typeof props.waitFor==="object" ? checkIfReady(props.waitFor) : true;
+    if(totalLoaded) {
+        const { loading, error, data } = useQuery(props.passQuery);
+        if(error) { currState = "error"; args[0] = error; }
+        else if(!loading) {
+            if(checkIfNullable(data)) {
+                currState = "nullable";
+            } else currState = "result";
+            args[0] = data;
+        }
+    }
+    const filterContainer = (providenIC : ReactNode, typeState="loading", argv: any[]) : ReactNode[] => {
         let outputIC : ReactNode[] = [], iter = 0;
         React.Children.forEach(providenIC, (el : ReactNode)=>{
             if(!React.isValidElement(el)) return;
-            if(loading) {
-                if(el.type===QueryContainer.Loading) {
-                    if(typeof el.props.template==="function") {
-                        outputIC.push(el.props.template());
-                    } else {
-                        let elc = React.cloneElement(el, {
-                            key:iter,
-                            children:el.props.children
-                        });
-                        outputIC.push(elc);
-                    }
-                }
-            } else if(error) {
-                if(el.type===QueryContainer.Error) {
-                    if(typeof el.props.template==="function") {
-                        outputIC.push(el.props.template(error));
-                    } else {
-                        let elc = React.cloneElement(el, {
-                            key:iter,
-                            children:el.props.children
-                        });
-                        outputIC.push(elc);
-                    }
-                }
-            } else if(el.type===QueryContainer.Result) {
+            if(typeStates[typeState]===el.type) {
+                let elc = el;
                 if(typeof el.props.template==="function") {
-                    outputIC.push(el.props.template(data));
-                } else {
-                    let elc = React.cloneElement(el, {
-                        key:iter,
-                        children:el.props.children
-                    });
-                    outputIC.push(elc);
+                    elc = el.props.template(...argv);
                 }
+                elc = React.cloneElement(elc, {
+                    key:iter
+                });
+                outputIC.push(elc);
             }
             iter++;
         });
@@ -74,7 +77,7 @@ const QueryContainer = (props: QueryContainerProps) : ReactElement<QuerySubconta
 
     return (
         <TagName id={props.id} className={props.className} style={props.style}>
-            {filterContainer(props.children)}
+            {filterContainer(props.children, currState, args)}
         </TagName>
     )
 }
@@ -109,6 +112,19 @@ QueryContainer.Error = (props: QuerySubcontainerProps) : ReactElement<QuerySubco
  * QueryContainer - Result Template
  */
 QueryContainer.Result = (props: QuerySubcontainerProps) : ReactElement<QuerySubcontainerProps> => {
+    const TagName = props.tagName || React.Fragment;
+
+    return (
+        <TagName>
+            {props.children}
+        </TagName>
+    );
+}
+
+/**
+ * QueryContainer - null result
+ */
+QueryContainer.Nullable = (props: QuerySubcontainerProps) : ReactElement<QuerySubcontainerProps> => {
     const TagName = props.tagName || React.Fragment;
 
     return (
